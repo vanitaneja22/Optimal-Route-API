@@ -1,22 +1,22 @@
-var express 				= require("express"),
-	mongoose 				= require("mongoose"),
-	flash					= require("connect-flash"),
-	passport 				= require("passport"),
-	bodyParser 				= require("body-parser"),
-	User					= require("./models/user"),
-	Customer                = require("./models/customer"),
-	Route 					= require("./models/route"),
-	LocalStrategy 			= require("passport-local"),
-	passportLocalMongoose   = require("passport-local-mongoose"),
-	seeder					= require("./seed.js");
+var express 		    = require("express"),
+    mongoose 		    = require("mongoose"),
+    passport 		    = require("passport"),
+    bodyParser 		    = require("body-parser"),
+    User	            = require("./models/user"),
+    Customer                = require("./models/customer"),
+    Route 	            = require("./models/route"),
+    LocalStrategy 	    = require("passport-local"),
+    passportLocalMongoose   = require("passport-local-mongoose"),
+    seeder		    = require("./seed.js");
 
 seeder();
 mongoose.connect("mongodb+srv://frostcover:Fz7vsxHlcuQY6ezj@cluster0-nlz9b.mongodb.net/test?retryWrites=true");
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(flash());
 app.set("view engine","ejs");
+
+//PASSPORT CONFIGURATION
 app.use(require("express-session")({
 	secret: "Doggos are the best",
 	resave: false,
@@ -31,10 +31,17 @@ passport.deserializeUser(User.deserializeUser());
 
 app.use(function(req, res, next){
 	res.locals.currentUser = req.user;
-	res.locals.error = req.flash("error");
-	res.locals.success = req.flash("success");
 	next();
 });
+
+//LANDING PAGE
+app.get("/", function(req, res){
+	res.render("home");
+});
+
+//==================
+// CUSTOMER ROUTES
+//==================
 
 //add new customer
 app.get("/customer", isLoggedIn, function(req, res){
@@ -47,6 +54,7 @@ app.get("/customer", isLoggedIn, function(req, res){
 	})
 });
 
+//create a new delivery
 app.post("/customer", function(req, res){
 	var name = req.body.customername;
 	var address = req.body.customeraddress;
@@ -61,10 +69,22 @@ app.post("/customer", function(req, res){
 			console.log(err);
 		} else{
 			res.redirect("/");
-
 		}
 	});
 });
+
+//show deliveries
+app.get("/customerShow", isLoggedIn, function(req, res) {
+    Customer.find({}, function(err, data) {
+        res.render("delivery", {
+            data: data
+        })
+    })
+});
+
+// ============
+// MAP ROUTES
+// ============
 
 app.get("/route", isLoggedIn, function(req, res){
 	Route.find({}, function(err, newRoutes){
@@ -86,16 +106,11 @@ app.post("/route", isLoggedIn, function(req, res){
 		}
 	})
 });
-app.get("/customerShow", isLoggedIn, (req, res) => {
-    Customer.find({}, (err, data) => {
-        res.render("delivery", {
-            data: data
-        })
-    })
-});
-app.post("/updateStatus", isLoggedIn, (req, res) => {
 
-    Customer.find({latitude: req.body.latitude}, (err, data) => {
+//update status of the delivery
+app.post("/updateStatus", isLoggedIn, function(req, res) {
+
+    Customer.find({latitude: req.body.latitude}, function(err, data) {
         if(err)
             console.log(err);
         else {
@@ -110,17 +125,12 @@ app.post("/updateStatus", isLoggedIn, (req, res) => {
             } else {
                 res.send("Already delivered!");
             }
-
         }
     })
 })
-// ==============
-// AUTH ROUTES
-// ==============
-
-app.get("/", function(req, res){
-	res.render("home");
-});
+// =======================
+// AUTHENTICATION ROUTES
+// =======================
 
 app.get("/login", function(req, res){
 	res.render("login");
@@ -133,6 +143,7 @@ app.post("/login", passport.authenticate("local",
 	}), function(req, res){
 
 });
+
 app.post("/register", function(req,res) {
     User.register(new User({username: req.body.username}), req.body.password, function(err, ans) {
         if(err) {
@@ -147,21 +158,20 @@ app.post("/register", function(req,res) {
         }
     });
 });
+
 app.get("/logout", function(req, res){
 	req.logout();
-	//req.flash("success", "Logged you out")
 	res.redirect("/");
 });
 
+//middleware
 function isLoggedIn(req, res, next){
 	if(req.isAuthenticated()){
 		return next();
 	}
-	//req.flash("error", "You need to be logged in!");
 	res.redirect("/login");
 }
 
-
 app.listen(process.env.PORT || 5000, function(){
-	console.log("Server started..!!!")
+	console.log("Server started!")
 });
